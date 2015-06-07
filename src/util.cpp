@@ -1724,7 +1724,7 @@ nextChar:
       growBuf.addChar(' ');
     }
     else if (i>0 && c=='>' && // current char is a >
-        (isId(s.at(i-1)) || isspace((uchar)s.at(i-1)) || s.at(i-1)=='*' || s.at(i-1)=='&') && // prev char is an id char or space
+        (isId(s.at(i-1)) || isspace((uchar)s.at(i-1)) || s.at(i-1)=='*' || s.at(i-1)=='&' || s.at(i-1)=='.') && // prev char is an id char or space
         (i<8 || !findOperator(s,i)) // string in front is not "operator"
         )
     {
@@ -2225,6 +2225,10 @@ QCString tempArgListToString(ArgumentList *al,SrcLangExt lang)
       if (i>0)
       {
         result+=a->type.right(a->type.length()-i-1);
+        if (a->type.find("...")!=-1)
+        {
+          result+="...";
+        }
       }
       else // nothing found -> take whole name
       {
@@ -5236,6 +5240,7 @@ QCString escapeCharsInString(const char *name,bool allowDots,bool allowUnderscor
       case '=': growBuf.addStr("_0A"); break;
       case '$': growBuf.addStr("_0B"); break;
       case '\\': growBuf.addStr("_0C"); break;
+      case '@': growBuf.addStr("_0D"); break;
       default: 
                 if (c<0)
                 {
@@ -6777,7 +6782,7 @@ g_lang2extMap[] =
   { "fortranfree", "fortranfree",   SrcLangExt_Fortran  },
   { "fortranfixed", "fortranfixed", SrcLangExt_Fortran  },
   { "vhdl",        "vhdl",          SrcLangExt_VHDL     },
-  { "dbusxml",     "dbusxml",       SrcLangExt_XML      },
+  { "xml",         "xml",           SrcLangExt_XML      },
   { "tcl",         "tcl",           SrcLangExt_Tcl      },
   { "md",          "md",            SrcLangExt_Markdown },
   { 0,             0,              (SrcLangExt)0        }
@@ -6871,8 +6876,11 @@ void initDefaultExtensionMapping()
   updateLanguageMapping(".qsf",      "vhdl");
   updateLanguageMapping(".md",       "md");
   updateLanguageMapping(".markdown", "md");
+}
 
-  //updateLanguageMapping(".xml",   "dbusxml");
+void addCodeOnlyMappings()
+{
+  updateLanguageMapping(".xml",   "xml");
 }
 
 SrcLangExt getLanguageFromFileName(const QCString fileName)
@@ -7517,7 +7525,7 @@ bool readInputFile(const char *fileName,BufStr &inBuf,bool filter,bool isSourceC
   else
   {
     QCString cmd=filterName+" \""+fileName+"\"";
-    Debug::print(Debug::ExtCmd,0,"Executing popen(`%s`)\n",cmd.data());
+    Debug::print(Debug::ExtCmd,0,"Executing popen(`%s`)\n",qPrint(cmd));
     FILE *f=portable_popen(cmd,"r");
     if (!f)
     {
@@ -7535,7 +7543,7 @@ bool readInputFile(const char *fileName,BufStr &inBuf,bool filter,bool isSourceC
     portable_pclose(f);
     inBuf.at(inBuf.curPos()) ='\0';
     Debug::print(Debug::FilterOutput, 0, "Filter output\n");
-    Debug::print(Debug::FilterOutput,0,"-------------\n%s\n-------------\n",inBuf.data());
+    Debug::print(Debug::FilterOutput,0,"-------------\n%s\n-------------\n",qPrint(inBuf));
   }
 
   int start=0;

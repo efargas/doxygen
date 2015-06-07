@@ -14,7 +14,7 @@
  * input used in their production; they are not affected by this license.
  *
  */
-  
+%option never-interactive
 %{
 
 /*
@@ -28,7 +28,6 @@
 #include <qarray.h>
 #include <qstack.h>
 #include <qregexp.h>
-#include <unistd.h>
 #include <qfile.h>
   
 #include "scanner.h"
@@ -45,8 +44,8 @@
 
 #include "clangparser.h"
 
-#define YY_NEVER_INTERACTIVE 1
 #define YY_NO_INPUT 1
+#define YY_NO_UNISTD_H 1
 
 /* -----------------------------------------------------------------
  *
@@ -2805,7 +2804,8 @@ OPERATOR  "operator"{B}*({ARITHOP}|{ASSIGNOP}|{LOGICOP}|{BITOP})
 					  }
   					}
 <FindMembers,FindFields,ReadInitializer>"//"([!/]?){B}*{CMD}"}".*|"/*"([!*]?){B}*{CMD}"}"[^*]*"*/"	{
-  					  closeGroup(current,yyFileName,yyLineNr);
+                                          bool insideEnum = YY_START==FindFields || (YY_START==ReadInitializer && lastInitializerContext==FindFields); // see bug746226
+  					  closeGroup(current,yyFileName,yyLineNr,insideEnum);
   					}
 <FindMembers>"="			{ // in PHP code this could also be due to "<?="
   					  current->bodyLine = yyLineNr;
@@ -4662,6 +4662,7 @@ OPERATOR  "operator"{B}*({ARITHOP}|{ASSIGNOP}|{LOGICOP}|{BITOP})
                                           lineCount();
                                           current->args += " = delete";
 					  current->spec |= Entry::Delete;
+					  current->argList->isDeleted=TRUE;
                                           BEGIN(FuncQual);
                                         }
 <FuncQual,TrailingReturn>{BN}*"="{BN}*"default"{BN}*     { // C++11 explicitly defaulted constructor/assignment operator
@@ -5633,7 +5634,13 @@ OPERATOR  "operator"{B}*({ARITHOP}|{ASSIGNOP}|{LOGICOP}|{BITOP})
 					  BEGIN( ClassVar );
 					}
 <ClassVar>":"				{ 
-					  if (current->section==Entry::ENUM_SEC) // enum E:2, see bug 313527, 
+                                          if (current->section==Entry::VARIABLE_SEC) // enum A B:2, see bug 748208
+                                          {
+                                            current->bitfields+=":";
+                                            current->args.resize(0);
+                                            BEGIN(BitFields);
+                                          }
+                                          else if (current->section==Entry::ENUM_SEC) // enum E:2, see bug 313527, 
                                                                                  // or C++11 style enum: 'E : unsigned int {...}'
 					  {
 					    current->args.resize(0);
@@ -6264,9 +6271,16 @@ OPERATOR  "operator"{B}*({ARITHOP}|{ASSIGNOP}|{LOGICOP}|{BITOP})
                                           g_nestedComment=FALSE;
   					  BEGIN(DocCopyBlock);
   					}
-<DocBlock>"~~~"[~]*                     {
+<DocBlock>^({B}*"*"+)?{B}{0,3}"~~~"[~]*                {
                                           docBlock+=yytext;
                                           docBlockName="~~~";
+                                          g_fencedSize=yyleng;
+                                          g_nestedComment=FALSE;
+                                          BEGIN(DocCopyBlock);
+                                        }
+<DocBlock>^({B}*"*"+)?{B}{0,3}"```"[`]*                {
+                                          docBlock+=yytext;
+                                          docBlockName="```";
                                           g_fencedSize=yyleng;
                                           g_nestedComment=FALSE;
                                           BEGIN(DocCopyBlock);
@@ -6382,7 +6396,14 @@ OPERATOR  "operator"{B}*({ARITHOP}|{ASSIGNOP}|{LOGICOP}|{BITOP})
 					    REJECT;
 					  }
   					}
-<DocCopyBlock>"~~~"[~]*                 {
+<DocCopyBlock>^({B}*"*"+)?{B}{0,3}"~~~"[~]* {
+                                          docBlock+=yytext;
+                                          if (g_fencedSize==yyleng)
+                                          {
+                                            BEGIN(DocBlock);
+                                          }
+                                        }
+<DocCopyBlock>^({B}*"*"+)?{B}{0,3}"```"[`]*                 {
                                           docBlock+=yytext;
                                           if (g_fencedSize==yyleng)
                                           {

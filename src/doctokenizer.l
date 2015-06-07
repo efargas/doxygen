@@ -16,7 +16,7 @@
  *
  */
 
-
+%option never-interactive
 %{
 
 #include <ctype.h>
@@ -37,8 +37,8 @@
 #include "doxygen.h"
 #include "portable.h"
 
-#define YY_NEVER_INTERACTIVE 1
 #define YY_NO_INPUT 1
+#define YY_NO_UNISTD_H 1
   
 //--------------------------------------------------------------------------
 
@@ -1035,7 +1035,7 @@ REFWORD   {LABELID}|{REFWORD2}|{REFWORD3}|{REFWORD4}
 <St_IntRef>{BLANK}+"\"" {
                          BEGIN(St_Ref2);
                        }
-<St_SetScope>{SCOPEMASK}{BLANK} {
+<St_SetScope>({SCOPEMASK}|{ANONNS}){BLANK} {
                          g_token->name = yytext;
                          g_token->name = g_token->name.stripWhiteSpace();
 			 return TK_WORD;

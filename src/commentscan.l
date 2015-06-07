@@ -12,7 +12,8 @@
  * input used in their production; they are not affected by this license.
  *
  */
-  
+
+%option never-interactive
 %{
 
 /*
@@ -26,7 +27,6 @@
 #include <qarray.h>
 #include <qstack.h>
 #include <qregexp.h>
-#include <unistd.h>
 #include <qfile.h>
   
 #include "scanner.h"
@@ -49,6 +49,7 @@
 #include "formula.h"
 
 #define YY_NO_INPUT 1
+#define YY_NO_UNISTD_H 1
 
 // forward declarations
 static bool handleBrief(const QCString &);
@@ -2915,7 +2916,7 @@ bool parseCommentBlock(/* in */     ParserInterface *parser,
   }
 
   Debug::print(Debug::CommentScan,0,"-----------\nCommentScanner: %s:%d\n"
-               "input=[\n%s]\n",fileName.data(),lineNr,comment.data()
+               "input=[\n%s]\n",qPrint(fileName),lineNr,qPrint(comment)
               );
   
   commentscanYYrestart( commentscanYYin );
@@ -2962,9 +2963,9 @@ bool parseCommentBlock(/* in */     ParserInterface *parser,
 
   Debug::print(Debug::CommentScan,0,
                "brief=[line=%d\n%s]\ndocs=[line=%d\n%s]\ninbody=[line=%d\n%s]\n===========\n",
-	       current->briefLine,current->brief.data(),
-               current->docLine,current->doc.data(),
-               current->inbodyLine,current->inbodyDocs.data()
+	       current->briefLine,qPrint(current->brief),
+               current->docLine,qPrint(current->doc),
+               current->inbodyLine,qPrint(current->inbodyDocs)
               );
   
   checkFormula();
@@ -3114,7 +3115,7 @@ void closeGroup(Entry *e,const char *fileName,int,bool foundInline)
     g_memberGroupId=DOX_NOGROUP;
     g_memberGroupRelates.resize(0);
     g_memberGroupDocs.resize(0);
-    e->mGrpId=DOX_NOGROUP;
+    if (!foundInline) e->mGrpId=DOX_NOGROUP;
     //printf("new group id=%d\n",g_memberGroupId);
   }
   else if (!g_autoGroupStack.isEmpty()) // end of auto group
